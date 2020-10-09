@@ -64,10 +64,14 @@ ROBOTSTXT_OBEY = True
 # See https://docs.scrapy.org/en/latest/topics/item-pipeline.html
 ITEM_PIPELINES = {
     'Grocery.pipelines.GroceryPipeline': 300,
-    'Grocery.pipelines.RiceImagesPipeline': 200,
+    'Grocery.pipelines.GroceryImagesPipeline': 200,
 }
 
 IMAGES_STORE = '/home/user/Project/Web_scraping/Tesco/Image'
+
+# MONGO_URI = '18.191.185.178'
+# MONGO_PORT = 27017
+# MONGO_DATABASE = 'Tesco'
 
 # Enable and configure the AutoThrottle extension (disabled by default)
 # See https://docs.scrapy.org/en/latest/topics/autothrottle.html

@@ -15,14 +15,16 @@ class GroceryLoader(ItemLoader):
 def last_str(s):
     return s.split()[-1]
 
-class RiceItem(Item):
+class GroceryItem(Item):
     # define the fields for your item here like:
     name = Field()
     currency = Field()
     price = Field()
     legal_disclaim = Field()
     feature = Field()
+    ingredient = Field()
     product_market = Field()
+    brand_market = Field()
     other_info = Field()
     third_party_logo = Field()
     third_party_logo_other_text = Field()
