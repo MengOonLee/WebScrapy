@@ -9,19 +9,37 @@ import scrapy
 from itemadapter import ItemAdapter
 from scrapy.exceptions import DropItem
 from scrapy.pipelines.images import ImagesPipeline
+from scrapy.exporters import JsonLinesItemExporter
 
 import json
 import hashlib
+import os
 
 class GroceriesPipeline:
+    
     def __init__(self):
         self.name_seen = set()
         
     def open_spider(self, spider):
-        self.file = open("Groceries.jl", "w")
+        self.path_to_exporter = {}
         
     def close_spider(self, spider):
-        self.file.close()
+        for exporter in self.path_to_exporter.values():
+            exporter.finish_exporting()
+            
+    def _exporter_for_item(self, item):
+        adapter = ItemAdapter(item)
+        directory = './JSON/' + adapter['group'] + '/' + adapter['category']
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+        path = './JSON/' + adapter['group'] + '/' + adapter['category'] + '/' + \
+            adapter['subcategory'] + '.jl'
+        if path not in self.path_to_exporter:
+            f = open(path, 'wb')
+            exporter = JsonLinesItemExporter(f)
+            exporter.start_exporting()
+            self.path_to_exporter[path] = exporter
+        return self.path_to_exporter[path]
         
     def process_item(self, item, spider):
         adapter = ItemAdapter(item)
@@ -29,8 +47,8 @@ class GroceriesPipeline:
             raise DropItem("Duplicate item found: %r" % item)
         else:
             self.name_seen.add(adapter['name'])
-            line = json.dumps(adapter.asdict()) + "\n"
-            self.file.write(line)
+            exporter = self._exporter_for_item(item)
+            exporter.export_item(item)
             return item
         
 class GroceriesImagesPipeline(ImagesPipeline):
