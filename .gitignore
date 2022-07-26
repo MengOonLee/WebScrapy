@@ -2,5 +2,7 @@ Image/
 JSON/
 __pycache__/
 .ipynb_checkpoints/
-.jl
+*.jl
+*.html
+*.json
 venv/

@@ -1,3 +1,4 @@
 #!/bin/bash
-pip install -qU pip wheel
-pip install -qU scrapy
+pip install --no-cache-dir -U pip wheel
+pip install --no-cache-dir -U numpy pandas matplotlib seaborn
+pip install --no-cache-dir -U scrapy
