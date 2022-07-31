@@ -1,3 +1,3 @@
 #!/bin/bash
 
-scrapy runspider quotes_spider.py -o quotes.jl
+scrapy crawl quotes -o ./data/quotes.jl
