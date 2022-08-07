@@ -6,4 +6,3 @@ __pycache__/
 *.html
 *.json
 venv/
-data/
