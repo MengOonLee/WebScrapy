@@ -2,7 +2,7 @@ import time
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import wait, expected_conditions
-from selenium.common.exceptions import TimeoutException
+from selenium.common.exceptions import NoSuchElementException
 import scrapy
 from scrapy import crawler, loader
 from itemloaders import processors
@@ -37,7 +37,7 @@ class LotusSpider(scrapy.Spider):
     def start_requests(self):
         urls = [
             # "https://www.lotuss.com.my/en/category/meat-poultry/meat/parts-weighted"
-            "https://www.lotuss.com.my/en/category/meat-poultry/meat"
+            "https://www.lotuss.com.my/en/category/meat-poultry"
         ]
         
         for url in urls:
@@ -47,22 +47,17 @@ class LotusSpider(scrapy.Spider):
     def parse_items(self, response):
         self.driver.get(response.url)
 
-        elem_present = ""
-        while not elem_present:
+        num_trial, element_present = 0, ""
+        while not element_present:
             try:
-                elem_present = self.driver.find_element(By.XPATH,
-                    "//div[@id='product-list']")
-            except:
+                element_present = wait.WebDriverWait(self.driver, timeout=10)\
+                    .until(expected_conditions.presence_of_element_located(
+                        (By.XPATH, "//div[@id='product-list']")))
+                if num_trial>3:
+                    break
+            except NoSuchElementException:
                 continue
-
-        # element_present = ""
-        # while not element_present:
-        #     try:
-        #         element_present = wait.WebDriverWait(self.driver, 10).until(
-        #             expected_conditions.presence_of_element_located(
-        #                 (By.XPATH, "//div[@id='product-list']")))
-        #     except TimeoutException:
-        #         pass
+                num_trial += 1
         
         selector = scrapy.Selector(text=self.driver.page_source)
         categories = selector.xpath(
@@ -87,6 +82,7 @@ class LotusSpider(scrapy.Spider):
                     break
                 last_height = new_height
             
+            selector = scrapy.Selector(text=self.driver.page_source)
             items = selector.css("div.product-grid-item")
             for item in items:
                 loader = LotusLoader()
@@ -122,7 +118,7 @@ class LotusSpider(scrapy.Spider):
 
 
 process = crawler.CrawlerProcess(
-    # settings={"FEEDS":{"items.jl":{"format":"jsonlines"}}}
+    settings={"FEEDS":{"items.jl":{"format":"jsonlines"}}}
 )
 process.crawl(LotusSpider)
 process.start()
