@@ -17,7 +17,6 @@ class LotusItem(scrapy.Item):
 
 class LotusLoader(loader.ItemLoader):
     item = LotusItem()
-    # default_output_processor = processors.TakeFirst()
 
 class LotusSpider(scrapy.Spider):
     name = 'Lotus'
@@ -36,8 +35,7 @@ class LotusSpider(scrapy.Spider):
 
     def start_requests(self):
         urls = [
-            # "https://www.lotuss.com.my/en/category/meat-poultry/meat/parts-weighted"
-            "https://www.lotuss.com.my/en/category/meat-poultry"
+            "https://www.lotuss.com.my/en/category/grocery"
         ]
         
         for url in urls:
@@ -47,24 +45,20 @@ class LotusSpider(scrapy.Spider):
     def parse_items(self, response):
         self.driver.get(response.url)
 
-        num_trial, element_present = 0, ""
-        while not element_present:
+        num_trial = 0
+        while num_trial < 3:
             try:
-                element_present = wait.WebDriverWait(self.driver, timeout=10)\
+                if wait.WebDriverWait(self.driver, timeout=10)\
                     .until(expected_conditions.presence_of_element_located(
-                        (By.XPATH, "//div[@id='product-list']")))
-                if num_trial>3:
+                        (By.XPATH, "//div[@id='product-list']"))):
                     break
             except NoSuchElementException:
                 continue
                 num_trial += 1
         
         selector = scrapy.Selector(text=self.driver.page_source)
-        categories = selector.xpath(
-            "//li[contains(@class, 'MuiBreadcrumbs-li')]//text()"
-        ).getall()
-
         categories_url = selector.css("div.carousel a")
+        
         if len(categories_url)!=0:
             yield from response.follow_all(categories_url,
                 callback=self.parse_items)
@@ -73,9 +67,13 @@ class LotusSpider(scrapy.Spider):
             last_height = self.driver.execute_script(
                 "return document.body.scrollHeight")
             while True:
-                self.driver.execute_script(
-                    "window.scrollTo(0, document.body.scrollHeight)")
-                time.sleep(3)
+                # self.driver.execute_script(
+                #     "window.scrollTo(0, document.body.scrollHeight)")
+                # time.sleep(3)
+
+                wait.WebDriverWait(self.driver, timeout=10)\
+                    .until(self.driver.execute_script(
+                        "window.scrollTo(0, document.body.scrollHeight)"))
                 new_height = self.driver.execute_script(
                     "return document.body.scrollHeight")
                 if new_height==last_height:
@@ -83,8 +81,12 @@ class LotusSpider(scrapy.Spider):
                 last_height = new_height
             
             selector = scrapy.Selector(text=self.driver.page_source)
-            items = selector.css("div.product-grid-item")
-            for item in items:
+            
+            categories = selector.xpath(
+                "//li[contains(@class, 'MuiBreadcrumbs-li')]//text()"
+            ).getall()
+            
+            for item in selector.css("div.product-grid-item"):
                 loader = LotusLoader()
 
                 loader.add_value("categories", categories)
