@@ -7,7 +7,7 @@ import scrapy
 from scrapy import crawler, loader
 from itemloaders import processors
 import logging
-logging.getLogger().setLevel(logging.INFO)
+logging.getLogger().setLevel(logging.ERROR)
 
 class LotusItem(scrapy.Item):
     categories = scrapy.Field()
@@ -35,14 +35,15 @@ class LotusSpider(scrapy.Spider):
 
     def start_requests(self):
         urls = [
-            "https://www.lotuss.com.my/en/category/grocery"
+            # "https://www.lotuss.com.my/en/category/grocery/biscuits-cakes"
+            "https://www.lotuss.com.my/en/product/mamypoko-extra-dry-unisex-pants-xl32-74175572"
         ]
         
         for url in urls:
-            request = scrapy.Request(url=url, callback=self.parse_items)
+            request = scrapy.Request(url=url, callback=self.parse_info)
             yield request
 
-    def parse_items(self, response):
+    def parse_item(self, response):
         self.driver.get(response.url)
 
         num_trial = 0
@@ -67,13 +68,10 @@ class LotusSpider(scrapy.Spider):
             last_height = self.driver.execute_script(
                 "return document.body.scrollHeight")
             while True:
-                # self.driver.execute_script(
-                #     "window.scrollTo(0, document.body.scrollHeight)")
-                # time.sleep(3)
+                self.driver.execute_script(
+                    "window.scrollTo(0, document.body.scrollHeight)")
+                time.sleep(10)
 
-                wait.WebDriverWait(self.driver, timeout=10)\
-                    .until(self.driver.execute_script(
-                        "window.scrollTo(0, document.body.scrollHeight)"))
                 new_height = self.driver.execute_script(
                     "return document.body.scrollHeight")
                 if new_height==last_height:
@@ -97,30 +95,43 @@ class LotusSpider(scrapy.Spider):
                 price = item.css("p")[0].css("::text").getall()
                 loader.add_value("price", "".join(price))
 
+                info_page = item.css("a::attr(href)").get()
+                if info_page is not None:
+                    yield response.follow(info_page,
+                        callback=self.parse_info, meta={"loader": loader})
+
                 yield loader.load_item()
 
                 # img_url = item.css("img::attr(src)").get()
-
-                # info_page = item.css("a::attr(href)").get()
-                # if info_page is not None:
-                #     yield response.follow(info_page,
-                #         callback=self.parse_info)
 
             # info_links = selector.css("div#product-list a")
             # yield from response.follow_all(info_links,
             #     callback=self.parse_info)
 
-    # def parse_info(self, response):
-    #     self.driver.get(response.url)
+    def parse_info(self, response):
+        self.driver.get(response.url)
 
-    #     selector = scrapy.Selector(text=self.driver.page_source)
-    #     info = selector.css("div.MuiBox-root::text")[2].get()
-    #     print(info)
-    #     yield info
+        num_trial = 0
+        while num_trial < 3:
+            try:
+                if wait.WebDriverWait(self.driver, timeout=10)\
+                    .until(expected_conditions.presence_of_element_located(
+                        (By.XPATH, "//div[@id='scrollable-force-tabpanel-0']"))):
+                    break
+            except NoSuchElementException:
+                continue
+                num_trial += 1
+        
+        selector = scrapy.Selector(text=self.driver.page_source)
+        info = selector.css("div#scrollable-force-tabpanel-0 ::text").get()
+        
+        print(info)
+        
+        # self.loader.add_value("info", info)
 
 
 process = crawler.CrawlerProcess(
-    settings={"FEEDS":{"items.jl":{"format":"jsonlines"}}}
+    # settings={"FEEDS":{"items.jl":{"format":"jsonlines"}}}
 )
 process.crawl(LotusSpider)
 process.start()
