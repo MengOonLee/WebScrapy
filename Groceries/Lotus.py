@@ -35,7 +35,7 @@ class LotusSpider(scrapy.Spider):
     def start_requests(self):
         urls = [
             # "https://www.lotuss.com.my/en/category/grocery/biscuits-cakes"
-            "https://www.lotuss.com.my/en/category/beverages/coffee-tea/local-coffee"
+            "https://www.lotuss.com.my/en/category/grocery/commodities/rice"
         ]
         
         for url in urls:
@@ -56,12 +56,19 @@ class LotusSpider(scrapy.Spider):
                 callback=self.parse_category)
         except:
             pass
-            
+
         last_height = self.driver.execute_script(
             "return document.body.scrollHeight")
-        print(last_height)
+        
+        self.driver.execute_script(
+            "window.scrollTo(0, document.body.scrollHeight)")
+        time.sleep(20)
+        
+        new_height = self.driver.execute_script(
+            "return document.body.scrollHeight")
+        print(last_height, new_height)
             
-        #     while True:
+        # while True:
         #         time.sleep(10)
         #         self.driver.execute_script(
         #             "window.scrollTo(0, document.body.scrollHeight)")
