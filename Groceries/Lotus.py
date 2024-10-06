@@ -34,10 +34,9 @@ class LotusSpider(scrapy.Spider):
 
     def start_requests(self):
         urls = [
-            # "https://www.lotuss.com.my/en/category/grocery/biscuits-cakes"
             "https://www.lotuss.com.my/en/category/grocery/commodities/rice"
         ]
-        
+
         for url in urls:
             request = scrapy.Request(url=url, callback=self.parse_category)
             yield request
@@ -57,17 +56,33 @@ class LotusSpider(scrapy.Spider):
         except:
             pass
 
-        last_height = self.driver.execute_script(
-            "return document.body.scrollHeight")
-        
-        self.driver.execute_script(
-            "window.scrollTo(0, document.body.scrollHeight)")
-        time.sleep(20)
-        
-        new_height = self.driver.execute_script(
-            "return document.body.scrollHeight")
-        print(last_height, new_height)
-            
+        try:
+            wait.WebDriverWait(self.driver, timeout=10)\
+                .until(expected_conditions.presence_of_element_located(
+                    (By.XPATH, "//div[@id='product-list']")))
+            html_end = self.driver.find_element(By.XPATH,
+                "//div[contains(@class, 'responsivegrid')]")
+            print(html_end)
+            self.driver.execute_script("arguments[0].scrollIntoView()", html_end)
+        except:
+            raise
+
+        # last_height = self.driver.execute_script(
+        #     "return document.body.scrollHeight")
+
+        # element = self.driver.find_element(By.XPATH,
+        #     "//div[@id='product-list']")
+        # self.driver.execute_script("""
+        #     arguments[0].scrollTop = arguments[0].scrollTop + arguments[0].offsetHeight;
+        # """, element)
+        # self.driver.execute_script(
+        #     "window.scrollTo(0, document.body.scrollHeight)")
+        # time.sleep(20)
+
+        # new_height = self.driver.execute_script(
+        #     "return document.body.scrollHeight")
+        # print(last_height, new_height)
+
         # while True:
         #         time.sleep(10)
         #         self.driver.execute_script(
