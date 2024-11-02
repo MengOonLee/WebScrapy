@@ -1,7 +1,9 @@
 import time
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import wait, expected_conditions
+from selenium.common.exceptions import NoSuchElementException
 import scrapy
 from scrapy import crawler, loader
 from itemloaders import processors
@@ -10,11 +12,12 @@ logging.getLogger().setLevel(logging.ERROR)
 
 class LotusItem(scrapy.Item):
     categories = scrapy.Field()
-    name = scrapy.Field(output_processor=processors.TakeFirst())
-    price = scrapy.Field(output_processor=processors.TakeFirst())
-    info = scrapy.Field(output_processor=processors.TakeFirst())
+    name = scrapy.Field()
+    price = scrapy.Field()
+    info = scrapy.Field()
 
 class LotusLoader(loader.ItemLoader):
+    default_output_processor = processors.TakeFirst()
     item = LotusItem()
 
 class LotusSpider(scrapy.Spider):
@@ -34,67 +37,94 @@ class LotusSpider(scrapy.Spider):
 
     def start_requests(self):
         urls = [
-            "https://www.lotuss.com.my/en/category/grocery/commodities/rice"
+            # "https://www.lotuss.com.my/en/category/grocery/commodities/rice"
+            "https://www.lotuss.com.my/en/product/jati-pusa-finest-basmathi-1121-2kg-74175599"
         ]
 
         for url in urls:
-            request = scrapy.Request(url=url, callback=self.parse_category)
+            request = scrapy.Request(url=url, callback=self.parse_items)
             yield request
 
-    def parse_category(self, response):
+    # def parse_products(self, response):
+    #     self.driver.get(response.url)
+
+    #     try:
+    #         wait.WebDriverWait(self.driver, timeout=10)\
+    #             .until(expected_conditions.presence_of_element_located(
+    #                 (By.XPATH, "//div[@class='carousel']")))
+    #         selector = scrapy.Selector(text=self.driver.page_source)
+    #         category_urls = selector.css("div.carousel a")
+    #         yield from response.follow_all(category_urls,
+    #             callback=self.parse_products)
+
+    #     except Exception:
+    #         pass
+
+    #     try:
+    #         wait.WebDriverWait(self.driver, timeout=10)\
+    #             .until(expected_conditions.presence_of_element_located(
+    #                 (By.XPATH, "//div[@id='product-list']")))
+
+    #     except Exception:
+    #         raise
+
+    #     html = self.driver.find_element(By.TAG_NAME, "html")
+    #     last_height = self.driver.execute_script(
+    #         "return document.body.scrollHeight")
+    #     while True:
+    #         for _ in range(3):
+    #             html.send_keys(Keys.END)
+    #             time.sleep(10)
+    #             html.send_keys(Keys.HOME)
+    #         new_height = self.driver.execute_script(
+    #             "return document.body.scrollHeight")
+    #         if new_height==last_height:
+    #             break
+    #         last_height = new_height
+
+    #     selector = scrapy.Selector(text=self.driver.page_source)
+    #     item_urls = selector.css("div#product-list a")
+    #     yield from response.follow_all(item_urls,
+    #         callback=self.parse_items)
+
+    def parse_items(self, response):
         self.driver.get(response.url)
+        loader = LotusLoader()
 
-        try:
-            wait.WebDriverWait(self.driver, timeout=10)\
-                .until(expected_conditions.presence_of_element_located(
-                    (By.XPATH, "//div[@class='carousel']")))
-            selector = scrapy.Selector(text=self.driver.page_source)
-            category_urls = selector.css("div.carousel a")
+        num_trial = 0
+        while num_trial < 3:
+            try:
+                if wait.WebDriverWait(self.driver, timeout=10)\
+                    .until(expected_conditions.presence_of_element_located(
+                        (By.XPATH, "//img[@id='current-product-image']"))):
+                    break
+            except NoSuchElementException:
+                continue
+                num_trial += 1
 
-            yield from response.follow_all(category_urls,
-                callback=self.parse_category)
-        except:
-            pass
+        selector = scrapy.Selector(text=self.driver.page_source)
+        categories = selector.css("ol.MuiBreadcrumbs-ol ::text").getall()
+        categories = ["/".join(categories[1:])]
+        loader.add_value("categories", categories)
 
-        try:
-            wait.WebDriverWait(self.driver, timeout=10)\
-                .until(expected_conditions.presence_of_element_located(
-                    (By.XPATH, "//div[@id='product-list']")))
-            html_end = self.driver.find_element(By.XPATH,
-                "//div[contains(@class, 'responsivegrid')]")
-            print(html_end)
-            self.driver.execute_script("arguments[0].scrollIntoView()", html_end)
-        except:
-            raise
+        name = selector.css("h1::text").get()
+        loader.add_value("name", name)
 
-        # last_height = self.driver.execute_script(
-        #     "return document.body.scrollHeight")
+        price = selector.css(
+            "div.MuiBox-root.jss418.jss329.jss326 ::text"
+        ).getall()
+        price = ["".join(price)]
+        loader.add_value("price", price)
 
-        # element = self.driver.find_element(By.XPATH,
-        #     "//div[@id='product-list']")
-        # self.driver.execute_script("""
-        #     arguments[0].scrollTop = arguments[0].scrollTop + arguments[0].offsetHeight;
-        # """, element)
-        # self.driver.execute_script(
-        #     "window.scrollTo(0, document.body.scrollHeight)")
-        # time.sleep(20)
+        info = selector.css(
+            "div#scrollable-force-tabpanel-0 ::text"
+        ).get()
+        loader.add_value("info", info)
 
-        # new_height = self.driver.execute_script(
-        #     "return document.body.scrollHeight")
-        # print(last_height, new_height)
+        yield loader.load_item()
 
-        # while True:
-        #         time.sleep(10)
-        #         self.driver.execute_script(
-        #             "window.scrollTo(0, document.body.scrollHeight)")
-
-        #         new_height = self.driver.execute_script(
-        #             "return document.body.scrollHeight")
-        #         if new_height==last_height:
-        #             break
-        #         last_height = new_height
-        #     print(new_height)
-
-process = crawler.CrawlerProcess()
+process = crawler.CrawlerProcess(
+    # settings={"FEEDS":{"items.jl":{"format":"jsonlines"}}}
+)
 process.crawl(LotusSpider)
 process.start()
